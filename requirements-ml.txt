@@ -1,0 +1,4 @@
+# Optional: real multilingual embeddings (EMBEDDING_BACKEND=sentence-transformers).
+# Pulls in PyTorch, so it is several hundred MB; the model itself downloads on first use.
+-r requirements.txt
+sentence-transformers>=3.0

@@ -1,0 +1,3 @@
+# Optional: LLM-written answers (ANSWER_BACKEND=anthropic, needs ANTHROPIC_API_KEY).
+-r requirements.txt
+anthropic>=0.40

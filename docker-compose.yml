@@ -1,0 +1,61 @@
+# Development / demo setup. For production, run behind gunicorn + a reverse proxy
+# and supply real secrets through the environment.
+x-app: &app
+  build: .
+  image: doc-qa:dev
+  environment:
+    POSTGRES_HOST: db
+    POSTGRES_DB: docqa
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    CELERY_BROKER_URL: redis://redis:6379/0
+    MEDIA_ROOT: /app/media
+    DJANGO_SECRET_KEY: dev-only-secret-change-me
+    DJANGO_DEBUG: "1"
+    # EMBEDDING_BACKEND: sentence-transformers   # needs requirements-ml.txt in the image
+    # ANSWER_BACKEND: anthropic                  # needs requirements-llm.txt and ANTHROPIC_API_KEY
+  volumes:
+    - .:/app
+    - media:/app/media   # shared, so the worker can read what the web container saved
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: docqa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docqa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    <<: *app
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+
+  worker:
+    <<: *app
+    command: celery -A config worker -l info
+
+volumes:
+  pgdata:
+  media:
